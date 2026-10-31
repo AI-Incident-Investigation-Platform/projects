@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: projects
+  labels:
+    app: projects
+spec:
+  selector:
+    matchLabels:
+      app: projects
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  progressDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        app: projects
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8003"
+        prometheus.io/path: /metrics
+    spec:
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: projects
+          image: aiip-projects:latest
+          env:
+            - name: SERVICE__BIND_HOST
+              value: 0.0.0.0
+            - name: SERVICE__PORT
+              value: "8003"
+          ports:
+            - name: http
+              containerPort: 8003
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 1
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests: { cpu: 100m, memory: 160Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: secret
+              mountPath: /app/config.toml
+              subPath: config.toml
+      volumes:
+        - name: secret
+          secret:
+            secretName: projects
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: projects
+spec:
+  selector:
+    app: projects
+  ports:
+    - name: http
+      port: 8003
+      targetPort: http
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: projects-ratelimit
+spec:
+  rateLimit:
+    average: 50
+    burst: 100
+    period: 1s
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: projects
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: apps-projects-ratelimit@kubernetescrd
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /api/v1/projects
+            pathType: Prefix
+            backend:
+              service:
+                name: projects
+                port:
+                  name: http
+          - path: /api/v1/environments
+            pathType: Prefix
+            backend:
+              service:
+                name: projects
+                port:
+                  name: http
+          - path: /api/v1/services
+            pathType: Prefix
+            backend:
+              service:
+                name: projects
+                port:
+                  name: http
+          - path: /api/v1/invitations
+            pathType: Prefix
+            backend:
+              service:
+                name: projects
+                port:
+                  name: http
