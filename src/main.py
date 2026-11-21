@@ -1,3 +1,4 @@
+import asyncio
 import gc
 import logging
 from collections.abc import AsyncIterator
@@ -33,6 +34,7 @@ from src.core.metrics import MetricsMiddleware
 from src.core.middleware import RequestLoggingMiddleware
 from src.core.security.origin import OriginMiddleware
 from src.core.tracing import setup_tracing, shutdown_tracing
+from src.worker.runner import run_consumers
 
 log = logging.getLogger(__name__)
 
@@ -59,15 +61,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             extra={"event": "service.config_incomplete", "missing_settings": missing},
         )
         raise ConfigIncompleteError({"missing_settings": missing})
+    consumers: asyncio.Task[None] | None = None
     try:
         # объекты старта (модули, модели, DI) — в постоянное поколение: полная сборка мусора
         # перестаёт их обходить, паузы event loop под нагрузкой — ~20 мс вместо ~150
         gc.collect()
         gc.freeze()
+        stop = asyncio.Event()
+        consumers = asyncio.create_task(run_consumers(container, stop))
         log.info("Сервис готов принимать запросы", extra={"event": "service.started"})
         yield
     finally:
         log.info("Сервис останавливается", extra={"event": "service.stopping"})
+        if consumers is not None:
+            stop.set()
+            await consumers
         await container.close()
         shutdown_tracing()
         log.info("Сервис остановлен", extra={"event": "service.stopped"})

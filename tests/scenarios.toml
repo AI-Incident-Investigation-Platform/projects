@@ -321,3 +321,21 @@ id = "ACL-004"
 title = "Новая роль действует сразу, без ожидания свежести кэша"
 layer = "integration"
 domain = "projects"
+
+[[scenario]]
+id = "INGEST-TOKEN-001"
+title = "GET /internal/v1/api-tokens/{sha256}: только служебный токен с projects.tokens.read; неизвестный digest — 404 и отрицательная запись на секунду"
+layer = "integration"
+domain = "projects"
+
+[[scenario]]
+id = "INGEST-TOKEN-002"
+title = "Выпуск и отзыв токена сразу переписывают projects:token:<sha256>; истёкший — expired, свежесть не дольше срока"
+layer = "integration"
+domain = "projects"
+
+[[scenario]]
+id = "INGEST-TOKEN-003"
+title = "token.used сдвигает last_used_at только вперёд; повтор и опоздавшая пачка ничего не портят"
+layer = "integration"
+domain = "projects"

@@ -11,6 +11,7 @@ from src.api.exc.api_tokens import (
     ApiTokenNotFoundError,
 )
 from src.core.access.service import ProjectAccess
+from src.core.api_tokens.cache import ApiTokenCache
 from src.core.db.dto.api_token import ApiTokenDTO
 from src.core.db.enums import Permission
 from src.core.db.models.api_token import ApiToken
@@ -22,9 +23,10 @@ log = logging.getLogger(__name__)
 
 
 class ApiTokenService:
-    def __init__(self, uow: UnitOfWork, access: ProjectAccess) -> None:
+    def __init__(self, uow: UnitOfWork, access: ProjectAccess, cache: ApiTokenCache) -> None:
         self._uow = uow
         self._access = access
+        self._cache = cache
 
     async def list_tokens(
         self, current_user: CurrentUser, project_id: UUID, cursor: str | None, limit: int
@@ -61,6 +63,7 @@ class ApiTokenService:
         )
         self._uow.api_tokens.add(token)
         await self._uow.commit()
+        await self._cache.refresh(token.token_hash)
         log.info(
             "Выпущен API-токен проекта",
             extra={
@@ -83,6 +86,8 @@ class ApiTokenService:
             return
         token.revoked_at = datetime.now(UTC)
         await self._uow.commit()
+        # ingest увидит отзыв сразу; упала запись — старая устареет за 5 секунд
+        await self._cache.refresh(token.token_hash)
         log.info(
             "API-токен проекта отозван",
             extra={

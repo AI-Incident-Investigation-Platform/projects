@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from src.config import cfg
 from src.core.access.acl import AclStore
+from src.core.api_tokens.cache import ApiTokenCache
 from src.core.security.signing_keys import SigningKeys
 
 
@@ -13,6 +14,12 @@ class AccessProvider(Provider):
     @provide(scope=Scope.APP)
     def get_acl_store(self, session_factory: async_sessionmaker, redis: Redis) -> AclStore:
         return AclStore(session_factory, redis)
+
+    @provide(scope=Scope.APP)
+    def get_api_token_cache(
+        self, session_factory: async_sessionmaker, redis: Redis
+    ) -> ApiTokenCache:
+        return ApiTokenCache(session_factory, redis)
 
     @provide(scope=Scope.APP)
     def get_access_checker(self, redis: Redis, acl: AclStore) -> AccessChecker:
