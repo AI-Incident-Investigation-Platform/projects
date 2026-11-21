@@ -30,7 +30,7 @@ class MonitoredServiceService:
         cursor: str | None,
         limit: int,
     ) -> Page[MonitoredServiceDTO]:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_READ)
+        await self._access.require(project_id, current_user, Permission.PROJECT_READ)
         rows = await self._uow.services.list_for_project(
             project_id, environment_id, Page.decode_cursor(cursor), limit + 1
         )
@@ -39,7 +39,7 @@ class MonitoredServiceService:
     async def create_service(
         self, current_user: CurrentUser, project_id: UUID, data: ServiceInput
     ) -> MonitoredServiceDTO:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_MANAGE)
+        await self._access.require(project_id, current_user, Permission.PROJECT_MANAGE)
         await self._require_environment(project_id, data.environment_id)
         service = MonitoredService(
             project_id=project_id,
@@ -87,7 +87,7 @@ class MonitoredServiceService:
         if service is None:
             raise ServiceNotFoundError({"service_id": str(service_id)})
         try:
-            await self._access.require(service.project_id, current_user.user_id, permission)
+            await self._access.require(service.project_id, current_user, permission)
         except ProjectNotFoundError as exc:
             # не участник не узнаёт, что сервис существует
             raise ServiceNotFoundError({"service_id": str(service_id)}) from exc

@@ -21,7 +21,7 @@ class EnvironmentService:
     async def list_environments(
         self, current_user: CurrentUser, project_id: UUID, cursor: str | None, limit: int
     ) -> Page[EnvironmentDTO]:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_READ)
+        await self._access.require(project_id, current_user, Permission.PROJECT_READ)
         rows = await self._uow.environments.list_for_project(
             project_id, Page.decode_cursor(cursor), limit + 1
         )
@@ -30,7 +30,7 @@ class EnvironmentService:
     async def create_environment(
         self, current_user: CurrentUser, project_id: UUID, data: EnvironmentInput
     ) -> EnvironmentDTO:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_MANAGE)
+        await self._access.require(project_id, current_user, Permission.PROJECT_MANAGE)
         environment = Environment(
             project_id=project_id,
             name=data.name,
@@ -50,7 +50,7 @@ class EnvironmentService:
             raise EnvironmentNotFoundError({"environment_id": str(environment_id)})
         try:
             await self._access.require(
-                environment.project_id, current_user.user_id, Permission.PROJECT_MANAGE
+                environment.project_id, current_user, Permission.PROJECT_MANAGE
             )
         except ProjectNotFoundError as exc:
             # не участник не узнаёт, что окружение существует

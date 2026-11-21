@@ -1,4 +1,4 @@
-from src.core.errors import ForbiddenError, NotFoundError
+from src.core.errors import ForbiddenError, IntegrationUnavailableError, NotFoundError
 
 
 class ProjectNotFoundError(NotFoundError):
@@ -18,3 +18,10 @@ class RoleNotGrantableError(ForbiddenError):
 
     code = "access.role_not_grantable"
     message = "Нельзя назначить или изменить роль шире своих прав"
+
+
+class AccessUnavailableError(IntegrationUnavailableError):
+    """Права не проверить: Dragonfly или БД недоступны. Пропустить без проверки нельзя."""
+
+    code = "access.unavailable"
+    message = "Не удалось проверить права, повторите позже"

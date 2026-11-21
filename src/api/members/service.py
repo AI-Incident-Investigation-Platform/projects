@@ -34,20 +34,18 @@ class MemberService:
     async def list_members(
         self, current_user: CurrentUser, project_id: UUID
     ) -> tuple[MemberDTO, ...]:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_READ)
+        await self._access.require(project_id, current_user, Permission.PROJECT_READ)
         members = await self._uow.memberships.list_for_project(project_id)
         return tuple(MemberDTO.from_orm(member) for member in members)
 
     async def list_roles(self, current_user: CurrentUser, project_id: UUID) -> tuple[RoleDTO, ...]:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_READ)
+        await self._access.require(project_id, current_user, Permission.PROJECT_READ)
         return tuple(RoleDTO.from_orm(role) for role in await self._uow.roles.list_all())
 
     async def change_role(
         self, current_user: CurrentUser, project_id: UUID, user_id: UUID, role_key: str
     ) -> MemberDTO:
-        granter = await self._access.require(
-            project_id, current_user.user_id, Permission.MEMBER_MANAGE
-        )
+        granter = await self._access.require(project_id, current_user, Permission.MEMBER_MANAGE)
         if user_id == current_user.user_id:
             raise OwnRoleChangeError({"project_id": str(project_id)})
         member = await self._get_member(project_id, user_id)
@@ -60,7 +58,9 @@ class MemberService:
             await self._keep_an_owner(member)
         member.role_id = role.id
         member.role = role
+        await self._access.record_change(project_id)
         await self._uow.commit()
+        await self._access.publish(project_id, user_id)
         log.info(
             "Роль участника изменена",
             extra={
@@ -76,17 +76,17 @@ class MemberService:
         """Исключает участника; свой id — выход из проекта, для него права не нужны."""
         leaving = user_id == current_user.user_id
         if leaving:
-            granter = await self._access.member_permissions(project_id, current_user.user_id)
+            granter = await self._access.member_permissions(project_id, current_user)
         else:
-            granter = await self._access.require(
-                project_id, current_user.user_id, Permission.MEMBER_MANAGE
-            )
+            granter = await self._access.require(project_id, current_user, Permission.MEMBER_MANAGE)
         member = await self._get_member(project_id, user_id)
         if not leaving:
             self._access.require_grantable(granter, member.role.permissions, member.role.key)
         await self._keep_an_owner(member)
         await self._uow.memberships.delete(member)
+        await self._access.record_change(project_id)
         await self._uow.commit()
+        await self._access.publish(project_id, user_id)
         log.info(
             "Участник вышел из проекта" if leaving else "Участник исключён из проекта",
             extra={

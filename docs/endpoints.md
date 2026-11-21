@@ -2,7 +2,8 @@
 
 Снаружи — через Traefik: `http://localhost/api/v1/...`. Внутри кластера —
 `http://projects:8003/api/v1/...`. Служебные роуты (`/health`, `/ready`,
-`/metrics`) живут вне `/api` и через gateway не публикуются. Контракт —
+`/metrics`, `/internal/v1/...`) живут вне `/api` и через gateway не
+pубликуются. Контракт —
 `contracts/openapi/main-public.openapi.yaml` и `contracts/AUTH_BOUNDARY.md`
 в репозитории `docs`.
 
@@ -93,6 +94,11 @@ Gateway ограничивает сервис: 50 запросов/с, burst 100
 | `GET /health` | kubelet: liveness, startup | `200 {status: "ok"}`, зависимостей не проверяет |
 | `GET /ready` | kubelet: readiness | `200`, если доступны Postgres и Dragonfly; иначе `503` |
 | `GET /metrics` | Alloy | метрики Prometheus |
+| `GET /internal/v1/acl?project_id=&user_id=` | любой сервис при промахе прав в Dragonfly (`aiip-kit`, `HttpAclSource`) | `200` — снимок прав по `backend/decisions.md`, пункт 1, `Cache-Control: no-store`; заодно кладёт его в Dragonfly. Не участник — `member` и `role` равны `null`, неизвестный проект — `project_state: "missing"` |
+
+`/internal` требует служебный токен (`Authorization: Bearer`) с `aud`
+`projects` и scope `projects.acl.read`. До выдачи служебных токенов в
+`auth` (AUTH-4) принимается токен `FakeServiceTokenProvider` из `aiip-kit`.
 
 ## Ошибки
 
@@ -105,6 +111,8 @@ request_id, details?}}`; `request_id` — `trace_id` запроса, он же �
 | `security.not_authenticated` | 401 | токена нет, подпись, срок, `iss` или `aud` неверны, пропуска сессии нет |
 | `security.origin_forbidden` | 403 | изменяющий запрос с куки без разрешённого `Origin` |
 | `access.permission_denied` | 403 | участник без права; `details.permission` — какого |
+| `access.unavailable` | 503 | права не проверить: Dragonfly или БД недоступны |
+| `security.scope_denied` | 403 | служебный токен без scope этого `/internal`-эндпоинта |
 | `project.not_found` | 404 | проекта нет или пользователь в нём не участник |
 | `environment.not_found` | 404 | окружения нет или оно в чужом проекте |
 | `service.not_found` | 404 | сервиса нет или он в чужом проекте |

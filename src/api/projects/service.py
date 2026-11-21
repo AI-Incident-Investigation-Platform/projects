@@ -41,6 +41,7 @@ class ProjectService:
             Membership(project_id=project.id, user_id=current_user.user_id, role_id=owner.id)
         )
         await self._uow.commit()
+        await self._access.publish(project.id, current_user.user_id)
         log.info(
             "Создан проект, создатель стал владельцем",
             extra={"event": "project.created", "project_id": str(project.id)},
@@ -48,13 +49,13 @@ class ProjectService:
         return ProjectDTO.from_orm(project)
 
     async def get_project(self, current_user: CurrentUser, project_id: UUID) -> ProjectDTO:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_READ)
+        await self._access.require(project_id, current_user, Permission.PROJECT_READ)
         return ProjectDTO.from_orm(await self._load(project_id))
 
     async def update_project(
         self, current_user: CurrentUser, project_id: UUID, changes: ProjectChanges
     ) -> ProjectDTO:
-        await self._access.require(project_id, current_user.user_id, Permission.PROJECT_MANAGE)
+        await self._access.require(project_id, current_user, Permission.PROJECT_MANAGE)
         project = await self._load(project_id)
         if changes.name is not None:
             project.name = changes.name

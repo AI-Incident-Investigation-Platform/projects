@@ -55,9 +55,7 @@ class InvitationService:
     async def invite(
         self, current_user: CurrentUser, project_id: UUID, user_id: UUID, role_key: str
     ) -> InvitationDTO:
-        granter = await self._access.require(
-            project_id, current_user.user_id, Permission.MEMBER_MANAGE
-        )
+        granter = await self._access.require(project_id, current_user, Permission.MEMBER_MANAGE)
         role = await self._uow.roles.get_by_key(role_key)
         if role is None:
             raise InvitationRoleInvalidError({"role": role_key}, {"role": role_key})
@@ -124,7 +122,7 @@ class InvitationService:
     async def list_for_project(
         self, current_user: CurrentUser, project_id: UUID
     ) -> tuple[InvitationDTO, ...]:
-        await self._access.require(project_id, current_user.user_id, Permission.MEMBER_MANAGE)
+        await self._access.require(project_id, current_user, Permission.MEMBER_MANAGE)
         rows = await self._uow.invitations.list_pending_for_project(project_id, datetime.now(UTC))
         return tuple(InvitationDTO.from_orm(row) for row in rows)
 
@@ -132,7 +130,7 @@ class InvitationService:
         self, current_user: CurrentUser, project_id: UUID, invitation_id: UUID
     ) -> None:
         """Отзывает ждущее приглашение; приглашение с ответом не меняется."""
-        await self._access.require(project_id, current_user.user_id, Permission.MEMBER_MANAGE)
+        await self._access.require(project_id, current_user, Permission.MEMBER_MANAGE)
         invitation = await self._uow.invitations.get_in_project_for_update(
             project_id, invitation_id
         )
@@ -176,9 +174,12 @@ class InvitationService:
                         role_id=invitation.role_id,
                     )
                 )
+                await self._access.record_change(invitation.project_id)
             invitation.status = InvitationStatus.ACCEPTED
             invitation.responded_at = datetime.now(UTC)
             await self._uow.commit()
+            if existing is None:
+                await self._access.publish(invitation.project_id, invitation.user_id)
             log.info(
                 "Приглашение принято",
                 extra={

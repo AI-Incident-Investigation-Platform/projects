@@ -29,7 +29,7 @@ class ApiTokenService:
     async def list_tokens(
         self, current_user: CurrentUser, project_id: UUID, cursor: str | None, limit: int
     ) -> Page[ApiTokenDTO]:
-        await self._access.require(project_id, current_user.user_id, Permission.API_TOKEN_MANAGE)
+        await self._access.require(project_id, current_user, Permission.API_TOKEN_MANAGE)
         rows = await self._uow.api_tokens.list_for_project(
             project_id, Page.decode_cursor(cursor), limit + 1
         )
@@ -38,7 +38,7 @@ class ApiTokenService:
     async def issue_token(
         self, current_user: CurrentUser, project_id: UUID, data: ApiTokenInput
     ) -> IssuedApiToken:
-        await self._access.require(project_id, current_user.user_id, Permission.API_TOKEN_MANAGE)
+        await self._access.require(project_id, current_user, Permission.API_TOKEN_MANAGE)
         if data.expires_at is not None and data.expires_at <= datetime.now(UTC):
             raise ApiTokenExpiryInvalidError({"project_id": str(project_id)})
         if data.environment_id is not None:
@@ -75,7 +75,7 @@ class ApiTokenService:
         self, current_user: CurrentUser, project_id: UUID, token_id: UUID
     ) -> None:
         """Отзывает токен; повторный отзыв ничего не меняет. Строка остаётся для истории."""
-        await self._access.require(project_id, current_user.user_id, Permission.API_TOKEN_MANAGE)
+        await self._access.require(project_id, current_user, Permission.API_TOKEN_MANAGE)
         token = await self._uow.api_tokens.get_in_project(project_id, token_id)
         if token is None:
             raise ApiTokenNotFoundError({"token_id": str(token_id)})

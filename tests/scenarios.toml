@@ -297,3 +297,27 @@ id = "INVITE-004"
 title = "Недоступный users — 503 без приглашения; непоставленное письмо приглашение не отменяет"
 layer = "integration"
 domain = "projects"
+
+[[scenario]]
+id = "ACL-001"
+title = "GET /internal/v1/acl пускает только служебный токен со scope projects.acl.read"
+layer = "integration"
+domain = "projects"
+
+[[scenario]]
+id = "ACL-002"
+title = "Снимок прав: участник — роль и права, чужой — member и role null, неизвестный проект — missing; снимок ложится в Dragonfly"
+layer = "integration"
+domain = "projects"
+
+[[scenario]]
+id = "ACL-003"
+title = "Исключённый участник теряет доступ сразу: в Dragonfly deleted с новой версией доступа"
+layer = "integration"
+domain = "projects"
+
+[[scenario]]
+id = "ACL-004"
+title = "Новая роль действует сразу, без ожидания свежести кэша"
+layer = "integration"
+domain = "projects"

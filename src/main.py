@@ -9,7 +9,7 @@ from dishka.integrations.fastapi import FastapiProvider
 from dishka.integrations.fastapi import setup_dishka as setup_fastapi_dishka
 from fastapi import FastAPI
 
-from src.api import router
+from src.api import internal_router, router
 from src.api.exc.handler import ApiErrorHandler
 from src.api.health.router import router as health_router
 from src.api.metrics.router import router as metrics_router
@@ -18,6 +18,7 @@ from src.config.exc import ConfigIncompleteError
 from src.core.admission.middleware import AdmissionMiddleware
 from src.core.db.db import engine
 from src.core.di import (
+    AccessProvider,
     AuthProvider,
     CacheProvider,
     DbProvider,
@@ -37,6 +38,7 @@ log = logging.getLogger(__name__)
 
 container = make_async_container(
     FastapiProvider(),
+    AccessProvider(),
     DbProvider(),
     CacheProvider(),
     AuthProvider(),
@@ -81,6 +83,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(MetricsMiddleware)
 
 app.include_router(router)
+app.include_router(internal_router)
 app.include_router(health_router)
 app.include_router(metrics_router)
 
