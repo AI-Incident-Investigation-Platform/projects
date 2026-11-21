@@ -96,9 +96,9 @@ Gateway ограничивает сервис: 50 запросов/с, burst 100
 | `GET /metrics` | Alloy | метрики Prometheus |
 | `GET /internal/v1/acl?project_id=&user_id=` | любой сервис при промахе прав в Dragonfly (`aiip-kit`, `HttpAclSource`) | `200` — снимок прав по `backend/decisions.md`, пункт 1, `Cache-Control: no-store`; заодно кладёт его в Dragonfly. Не участник — `member` и `role` равны `null`, неизвестный проект — `project_state: "missing"` |
 
-`/internal` требует служебный токен (`Authorization: Bearer`) с `aud`
-`projects` и scope `projects.acl.read`. До выдачи служебных токенов в
-`auth` (AUTH-4) принимается токен `FakeServiceTokenProvider` из `aiip-kit`.
+`/internal` требует служебный токен `auth` (`Authorization: Bearer`,
+`token_use=service`) с `aud` `projects` и scope `projects.acl.read`;
+пользовательский токен сюда не подходит — `401`.
 
 ## Ошибки
 

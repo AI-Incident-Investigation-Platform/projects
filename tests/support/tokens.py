@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -30,6 +30,23 @@ def issue_access_token(user_id: UUID, session_id: UUID, **overrides: Any) -> str
     key = overrides.pop("key", SIGNING_KEY)
     payload.update(overrides)
     return jwt.encode(payload, key, algorithm="RS256", headers={"kid": kid})
+
+
+def issue_service_token(client_id: str, audience: str, scopes: list[str], **overrides: Any) -> str:
+    """Служебный токен, как его выпускает auth по client credentials."""
+    now = datetime.now(UTC)
+    payload: dict[str, Any] = {
+        "iss": "auth",
+        "sub": client_id,
+        "aud": audience,
+        "token_use": "service",
+        "scope": " ".join(scopes),
+        "iat": now,
+        "exp": now + timedelta(minutes=5),
+        "jti": str(uuid4()),
+    }
+    payload.update(overrides)
+    return jwt.encode(payload, SIGNING_KEY, algorithm="RS256", headers={"kid": KEY_ID})
 
 
 def jwks_document() -> bytes:

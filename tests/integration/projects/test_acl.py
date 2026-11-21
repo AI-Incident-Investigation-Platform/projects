@@ -2,7 +2,6 @@ import json
 from uuid import uuid7
 
 import pytest
-from aiip_kit.service_auth.fake import FakeServiceTokenProvider
 from httpx import AsyncClient, Response
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,20 +11,20 @@ from src.main import container
 from tests.integration.conftest import SignIn
 from tests.integration.projects.test_projects import create_project
 from tests.support.members import add_member
+from tests.support.tokens import issue_access_token, issue_service_token
 
 ACL_URL = "/internal/v1/acl"
 
 
-async def service_headers(scopes: list[str], audience: str = "projects") -> dict[str, str]:
-    token = await FakeServiceTokenProvider("incidents").token(audience, scopes)
-    return {"Authorization": f"Bearer {token}"}
+def service_headers(scopes: list[str], audience: str = "projects") -> dict[str, str]:
+    return {"Authorization": f"Bearer {issue_service_token('incidents', audience, scopes)}"}
 
 
 async def get_acl(client: AsyncClient, project_id: object, user_id: object) -> Response:
     return await client.get(
         ACL_URL,
         params={"project_id": str(project_id), "user_id": str(user_id)},
-        headers=await service_headers(["projects.acl.read"]),
+        headers=service_headers(["projects.acl.read"]),
     )
 
 
@@ -42,13 +41,19 @@ async def test_acl_requires_service_token_with_scope(client: AsyncClient) -> Non
 
     anonymous = await client.get(ACL_URL, params=params)
     wrong_scope = await client.get(
-        ACL_URL, params=params, headers=await service_headers(["projects.tokens.read"])
+        ACL_URL, params=params, headers=service_headers(["projects.tokens.read"])
     )
     foreign_audience = await client.get(
-        ACL_URL, params=params, headers=await service_headers(["projects.acl.read"], "incidents")
+        ACL_URL, params=params, headers=service_headers(["projects.acl.read"], "incidents")
     )
 
-    assert anonymous.status_code == foreign_audience.status_code == 401
+    user_token = await client.get(
+        ACL_URL,
+        params=params,
+        headers={"Authorization": f"Bearer {issue_access_token(uuid7(), uuid7())}"},
+    )
+
+    assert anonymous.status_code == foreign_audience.status_code == user_token.status_code == 401
     assert anonymous.json()["error"]["code"] == "security.not_authenticated"
     assert wrong_scope.status_code == 403
     assert wrong_scope.json()["error"]["code"] == "security.scope_denied"

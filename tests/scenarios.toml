@@ -300,7 +300,7 @@ domain = "projects"
 
 [[scenario]]
 id = "ACL-001"
-title = "GET /internal/v1/acl пускает только служебный токен со scope projects.acl.read"
+title = "GET /internal/v1/acl пускает только служебный токен auth с aud projects и scope projects.acl.read; пользовательский — 401"
 layer = "integration"
 domain = "projects"
 

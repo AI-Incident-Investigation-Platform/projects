@@ -106,9 +106,10 @@ App и вызовы наружу в инфраструктуру клиента.
   после commit — старая запись устареет сама, отзыв не дольше 5 секунд.
 - Сам `projects` проверяет права тем же `DragonflyAccessChecker`, но при
   промахе читает свою БД (`AclStore`), а не зовёт себя по HTTP.
-- Служебный токен на `/internal/v1/acl` до AUTH-4 проверяет fake из
-  `aiip-kit` (`FakeServiceTokenVerifier`): `/internal` не опубликован через
-  Traefik и доступен только внутри кластера.
+- `/internal/v1/acl` принимает служебный токен `auth` (`aud=projects`,
+  `token_use=service`, scope `projects.acl.read`), проверка —
+  `JwtServiceTokenVerifier` из `aiip-kit` по тем же ключам JWKS, что и у
+  пользовательских токенов. `/internal` не опубликован через Traefik.
 - Удаления проекта ещё нет: состояние всегда `active` или `missing`,
   `lifecycle_version` — 1 (PRJ-11).
 
